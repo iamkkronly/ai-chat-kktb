@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with Kaustav (AI) - Debug Copy</title>
+    <style>
+        /* Basic Reset & General Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+        }
+
+        body {
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .chat-app-container {
+            width: 100%;
+            max-width: 450px;
+            height: 90vh;
+            max-height: 700px;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background-color: #007bff;
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: 500;
+            border-bottom: 1px solid #0069d9;
+            flex-shrink: 0;
+        }
+
+        .chat-messages {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message {
+            display: flex;
+            margin-bottom: 15px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .message .bubble {
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 100%;
+            word-wrap: break-word;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .message .bubble img.message-image-preview {
+            max-width: 100%; max-height: 200px; object-fit: contain;
+            border-radius: 10px; margin-top: 8px; display: block; cursor: pointer;
+        }
+
+        .message.user { justify-content: flex-end; }
+        .message.user .bubble { background-color: #007bff; color: white; border-bottom-right-radius: 5px; max-width: 75%; }
+
+        .message.ai { justify-content: flex-start; }
+        .message.ai .bubble { background-color: #e9ecef; color: #333; border-bottom-left-radius: 5px; }
+        .message.error .bubble { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        /* Styles for Code Blocks and Copy Button */
+        .message.ai .bubble p { margin-bottom: 0.5em; }
+        .message.ai .bubble p:last-child { margin-bottom: 0; }
+
+        .code-block-wrapper {
+            position: relative; background-color: #282c34; color: #abb2bf;
+            padding: 1em; padding-top: 2.8em; /* Adjusted for button text change feedback */
+            border-radius: 5px; margin-top: 0.5em; margin-bottom: 0.5em;
+            overflow-x: auto; border: 1px solid #3a3f4a;
+        }
+        .code-block-wrapper pre { margin: 0; white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; }
+        .code-block-wrapper code { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; }
+
+        .copy-code-button {
+            position: absolute; top: 8px; right: 8px; background-color: #4a505c;
+            color: #abb2bf; border: 1px solid #3a3f4a; padding: 5px 10px;
+            font-size: 0.75em; border-radius: 4px; cursor: pointer; opacity: 0.8;
+            transition: opacity 0.2s, background-color 0.2s;
+            text-transform: uppercase; font-weight: 600; min-width: 60px; /* To accommodate "Copied!" */
+            text-align: center;
+        }
+        .code-block-wrapper:hover .copy-code-button { opacity: 1; }
+        .copy-code-button:hover { background-color: #5c6370; color: #fff; }
+        .copy-code-button:active { background-color: #3a3f4a; }
+
+        .chat-input-area {
+            display: flex; align-items: center; padding: 10px 15px;
+            border-top: 1px solid #e0e0e0; background-color: #f8f9fa;
+            flex-shrink: 0; position: relative;
+        }
+        #imageUploadButton {
+            background: none; border: none; padding: 8px; margin-right: 8px;
+            cursor: pointer; color: #007bff;
+        }
+        #imageUploadButton svg { width: 22px; height: 22px; display: block; }
+        #imageUploadButton:hover { color: #0056b3; }
+        #imageUploadButton:disabled { color: #6c757d; cursor: not-allowed; }
+
+        .chat-input-area input[type="text"] {
+            flex-grow: 1; padding: 10px 15px; border: 1px solid #ced4da;
+            border-radius: 20px; margin-right: 10px; font-size: 1em;
+            outline: none; transition: border-color 0.2s;
+        }
+        .chat-input-area input[type="text"]:focus { border-color: #007bff; }
+
+        .chat-input-area button#sendButton {
+            padding: 10px 20px; background-color: #007bff; color: white;
+            border: none; border-radius: 20px; cursor: pointer; font-size: 1em;
+            font-weight: 500; transition: background-color 0.2s; flex-shrink: 0;
+        }
+        .chat-input-area button#sendButton:hover { background-color: #0056b3; }
+        .chat-input-area button#sendButton:disabled { background-color: #6c757d; cursor: not-allowed; }
+
+        #imagePreviewContainer {
+            position: absolute; bottom: 60px; left: 15px; background-color: #fff;
+            padding: 5px; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 10; display: none;
+        }
+        #imagePreviewContainer img { max-width: 100px; max-height: 100px; display: block; border-radius: 3px; }
+        #removeImageButton {
+            position: absolute; top: -8px; right: -8px; background-color: #333;
+            color: white; border: none; border-radius: 50%; width: 20px;
+            height: 20px; font-size: 12px; line-height: 20px; text-align: center;
+            cursor: pointer; font-weight: bold;
+        }
+
+        .loading-indicator {
+            text-align: center; padding: 10px 0; font-style: italic;
+            color: #6c757d; font-size: 0.9em; flex-shrink: 0;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 480px) {
+            .chat-app-container { height: 100vh; max-height: 100vh; border-radius: 0; }
+            .chat-header { font-size: 1.1em; padding: 12px 15px; }
+            .chat-messages { padding: 15px 10px; }
+            .message .bubble { padding: 8px 12px; }
+            .chat-input-area { padding: 8px 10px; }
+            #imageUploadButton { padding: 6px; margin-right: 6px; }
+            #imageUploadButton svg { width: 20px; height: 20px; }
+            .chat-input-area input[type="text"] { padding: 8px 12px; font-size: 0.95em; }
+            .chat-input-area button#sendButton { padding: 8px 15px; font-size: 0.95em; }
+            #imagePreviewContainer { bottom: 55px; left: 10px;}
+            .copy-code-button { font-size: 0.7em; padding: 3px 6px; min-width: 50px; }
+            .code-block-wrapper { padding-top: 2.5em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-app-container">
+        <header class="chat-header">Chat with Kaustav (AI)</header>
+        <div class="chat-messages" id="chatMessages">
+            <div class="message ai">
+                <div class="bubble" id="initialAiMessage">Hi! I am Kaustav. Ask me to generate some code!</div>
+            </div>
+        </div>
+        <div class="loading-indicator" id="loadingIndicator" style="display: none;"><span>Thinking...</span></div>
+        <div id="imagePreviewContainer">
+            <img id="imagePreview" src="#" alt="Image Preview">
+            <button type="button" id="removeImageButton" title="Remove Image">×</button>
+        </div>
+        <footer class="chat-input-area">
+            <input type="file" id="imageUploadInput" accept="image/*" style="display: none;">
+            <button type="button" id="imageUploadButton" title="Upload Image">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+            </button>
+            <input type="text" id="userInput" placeholder="Type message or upload image...">
+            <button id="sendButton">Send</button>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const chatMessages = document.getElementById('chatMessages');
+            const userInput = document.getElementById('userInput');
+            const sendButton = document.getElementById('sendButton');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const initialAiMessageBubble = document.getElementById('initialAiMessage');
+            const imageUploadButton = document.getElementById('imageUploadButton');
+            const imageUploadInput = document.getElementById('imageUploadInput');
+            const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+            const imagePreview = document.getElementById('imagePreview');
+            const removeImageButton = document.getElementById('removeImageButton');
+
+            let currentImageBase64 = null;
+            let currentImageMimeType = null;
+
+            if (![userInput, sendButton, chatMessages, loadingIndicator, initialAiMessageBubble,
+                  imageUploadButton, imageUploadInput, imagePreviewContainer, imagePreview, removeImageButton].every(el => el)) {
+                console.error("CRITICAL: One or more UI elements are missing."); return;
+            } else { console.log("Chat UI elements found."); }
+
+            const CUSTOM_AI_INSTRUCTIONS = "Your name is Kaustav. You were made by Kaustav Ray. Your server is in Kolkata. You are helpful. If an image is provided, describe it. When providing code, use Markdown triple backticks, e.g., ```javascript\n// code\n```.";
+            const GEMINI_API_KEY = "AIzaSyDinNjJs4jkTUoYG7B2XQKtrC6ObDc40S0"; // HARDCODED - INSECURE
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+            let chatHistory = [{ role: "model", parts: [{ text: initialAiMessageBubble.textContent.trim() }] }];
+
+            imageUploadButton.addEventListener('click', () => imageUploadInput.click());
+            imageUploadInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    if (!file.type.startsWith('image/')) { appendMessage('Select valid image.', 'ai', true); imageUploadInput.value = ''; return; }
+                    const maxSize = 4 * 1024 * 1024;
+                    if (file.size > maxSize) { appendMessage(`Image too large (Max 4MB).`, 'ai', true); imageUploadInput.value = ''; return; }
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        imagePreview.src = e.target.result; imagePreviewContainer.style.display = 'block';
+                        const [meta, data] = e.target.result.split(',');
+                        const mime = meta.match(/:(.*?);/);
+                        if (mime && mime[1] && data) { currentImageMimeType = mime[1]; currentImageBase64 = data; }
+                        else { clearSelectedImage(); appendMessage('Error processing image data.', 'ai', true); }
+                    };
+                    reader.onerror = () => { appendMessage('Error reading image.', 'ai', true); imageUploadInput.value = ''; };
+                    reader.readAsDataURL(file);
+                }
+            });
+            removeImageButton.addEventListener('click', clearSelectedImage);
+            function clearSelectedImage() {
+                currentImageBase64 = null; currentImageMimeType = null;
+                imagePreview.src = '#'; imagePreviewContainer.style.display = 'none';
+                imageUploadInput.value = '';
+            }
+
+            sendButton.addEventListener('click', handleSendMessage);
+            userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } });
+
+            function appendMessage(text, sender, isError = false, imageUrl = null) {
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('message', sender);
+                if (isError) messageDiv.classList.add('error');
+                const bubbleDiv = document.createElement('div');
+                bubbleDiv.classList.add('bubble');
+
+                if (sender === 'ai' && !isError && text.includes('```')) {
+                    bubbleDiv.innerHTML = '';
+                    text.split('```').forEach((part, index) => {
+                        if (part.trim() === '' && (index === 0 || index === text.split('```').length - 1) && text.split('```').length > 1) return;
+                        if (index % 2 === 0) {
+                            if (part.trim() !== '') { const p = document.createElement('p'); p.textContent = part; bubbleDiv.appendChild(p); }
+                        } else {
+                            const codeWrapper = document.createElement('div'); codeWrapper.className = 'code-block-wrapper';
+                            const pre = document.createElement('pre'); const code = document.createElement('code');
+                            let codeContent = part;
+                            const firstNL = part.indexOf('\n');
+                            if (firstNL !== -1) {
+                                const lang = part.substring(0, firstNL).trim().toLowerCase();
+                                if (lang && !lang.includes(' ')) { code.className = `language-${lang}`; codeContent = part.substring(firstNL + 1); }
+                            }
+                            code.textContent = codeContent; pre.appendChild(code);
+                            const copyBtn = document.createElement('button'); copyBtn.className = 'copy-code-button'; copyBtn.textContent = 'Copy';
+                            copyBtn.onclick = function() {
+                                navigator.clipboard.writeText(codeContent.trim())
+                                    .then(() => { copyBtn.textContent = 'Copied!'; setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000); })
+                                    .catch(err => {
+                                        console.error('Failed to copy code to clipboard:', err); // *** DETAILED LOGGING ***
+                                        let errText = 'Error';
+                                        if (err.name === 'NotAllowedError') errText = 'Denied';
+                                        copyBtn.textContent = errText;
+                                        // Optionally, display a more user-friendly message:
+                                        // if(err.name === 'NotAllowedError') alert("Clipboard copy was denied. Please check browser permissions or if you are on an HTTP page.");
+                                        setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2500);
+                                    });
+                            };
+                            codeWrapper.appendChild(copyBtn); codeWrapper.appendChild(pre); bubbleDiv.appendChild(codeWrapper);
+                        }
+                    });
+                } else { bubbleDiv.textContent = text; }
+
+                if (imageUrl && sender === 'user') {
+                    const imgPrev = document.createElement('img'); imgPrev.src = imageUrl; imgPrev.alt = "Uploaded";
+                    imgPrev.className = 'message-image-preview';
+                    if (bubbleDiv.innerHTML === '' && !text) { /* handle case with only image */ }
+                    bubbleDiv.appendChild(imgPrev);
+                }
+                messageDiv.appendChild(bubbleDiv); chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            function showLoading(isLoading) {
+                loadingIndicator.style.display = isLoading ? 'block' : 'none';
+                sendButton.disabled = isLoading; userInput.disabled = isLoading; imageUploadButton.disabled = isLoading;
+                if (!isLoading) userInput.focus();
+            }
+
+            async function handleSendMessage() {
+                const userText = userInput.value.trim();
+                if (userText === '' && !currentImageBase64) return;
+                showLoading(true);
+                const msgParts = []; if (userText) msgParts.push({ text: userText });
+                let userMsgImgUrl = null;
+                if (currentImageBase64 && currentImageMimeType) {
+                    msgParts.push({ inlineData: { mimeType: currentImageMimeType, data: currentImageBase64 } });
+                    userMsgImgUrl = `data:${currentImageMimeType};base64,${currentImageBase64}`;
+                }
+                appendMessage(userText || (currentImageBase64 ? "[Image]" : ""), 'user', false, userMsgImgUrl);
+                userInput.value = '';
+                chatHistory.push({ role: "user", parts: msgParts });
+
+                try {
+                    const reqBody = { systemInstruction: { parts: [{ text: CUSTOM_AI_INSTRUCTIONS }] }, contents: chatHistory, generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }};
+                    console.log("Sending request to API:", JSON.stringify(reqBody.contents.at(-1), null, 2)); // Log last user part
+                    const resp = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reqBody) });
+                    console.log("API Response Status:", resp.status);
+                    if (!resp.ok) {
+                        const errData = await resp.json().catch(() => ({error:{message:"Failed to parse API error JSON."}}));
+                        console.error('API Error Data:', errData);
+                        let errMsg = `Error ${resp.status}: ${errData.error?.message || resp.statusText}`;
+                        appendMessage(errMsg, 'ai', true);
+                        if (chatHistory.at(-1)?.role === 'user') chatHistory.pop();
+                        return;
+                    }
+                    const data = await resp.json(); console.log("API Response Data:", data);
+                    let aiText = "AI response issue.";
+                    if (data.candidates?.[0]?.content?.parts?.[0]?.text) aiText = data.candidates[0].content.parts[0].text;
+                    else if (data.promptFeedback?.blockReason) aiText = `Blocked: ${data.promptFeedback.blockReason}.`;
+                    else console.warn("Unexpected API response structure:", data);
+                    appendMessage(aiText, 'ai');
+                    chatHistory.push({ role: "model", parts: [{ text: aiText }] });
+                    if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
+                } catch (error) {
+                    console.error('Network/general error:', error);
+                    appendMessage('Error: Connection or processing failed.', 'ai', true);
+                    if (chatHistory.at(-1)?.role === 'user') chatHistory.pop();
+                } finally {
+                    showLoading(false); clearSelectedImage();
+                }
+            }
+            userInput.focus();
+            console.warn("DEV WARNING: Live API key embedded. Insecure.");
+        });
+    </script>
+</body>
+</html>
